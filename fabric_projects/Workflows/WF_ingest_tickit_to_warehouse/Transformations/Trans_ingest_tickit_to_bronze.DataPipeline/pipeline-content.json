@@ -1,0 +1,553 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "type": "Script",
+        "typeProperties": {
+          "scripts": [
+            {
+              "text": {
+                "value": "EXEC dbo.sp_GetOrCreateBronzeRuns @batch_id, @src_id",
+                "type": "Expression"
+              },
+              "type": "Query",
+              "parameters": [
+                {
+                  "name": "batch_id",
+                  "type": "Int16",
+                  "value": {
+                    "value": "@pipeline().parameters.p_batch_id",
+                    "type": "Expression"
+                  },
+                  "direction": "Input"
+                },
+                {
+                  "name": "src_id",
+                  "type": "Int16",
+                  "value": {
+                    "value": "@pipeline().parameters.p_src_id",
+                    "type": "Expression"
+                  },
+                  "direction": "Input"
+                }
+              ]
+            }
+          ],
+          "scriptBlockExecutionTimeout": "02:00:00"
+        },
+        "connectionSettings": {
+          "name": "Configurations",
+          "properties": {
+            "type": "FabricSqlDatabase",
+            "typeProperties": {
+              "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+              "workspaceId": "00000000-0000-0000-0000-000000000000"
+            },
+            "externalReferences": {
+              "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+            },
+            "annotations": []
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Create Bronze runs",
+        "dependsOn": []
+      },
+      {
+        "type": "ForEach",
+        "typeProperties": {
+          "isSequential": false,
+          "items": {
+            "value": "@activity('Create Bronze runs').output.resultSets[0].rows",
+            "type": "Expression"
+          },
+          "activities": [
+            {
+              "type": "IfCondition",
+              "typeProperties": {
+                "expression": {
+                  "value": "@equals(variables('pipeline_failed'), true)",
+                  "type": "Expression"
+                },
+                "ifTrueActivities": [],
+                "ifFalseActivities": [
+                  {
+                    "type": "Script",
+                    "typeProperties": {
+                      "scripts": [
+                        {
+                          "text": {
+                            "value": "UPDATE dbo.Bronze_runs\r\nSET status = 'RUNNING'\r\n    ,start_time = GETDATE()\r\n    ,end_time = NULL\r\nWHERE bronze_run_id = @bronze_run_id;",
+                            "type": "Expression"
+                          },
+                          "type": "Query",
+                          "parameters": [
+                            {
+                              "name": "bronze_run_id",
+                              "type": "Int16",
+                              "value": {
+                                "value": "@item().bronze_run_id",
+                                "type": "Expression"
+                              },
+                              "direction": "Input"
+                            }
+                          ]
+                        }
+                      ],
+                      "scriptBlockExecutionTimeout": "02:00:00"
+                    },
+                    "connectionSettings": {
+                      "name": "Configurations",
+                      "properties": {
+                        "type": "FabricSqlDatabase",
+                        "typeProperties": {
+                          "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                          "workspaceId": "00000000-0000-0000-0000-000000000000"
+                        },
+                        "externalReferences": {
+                          "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                        },
+                        "annotations": []
+                      }
+                    },
+                    "policy": {
+                      "timeout": "0.12:00:00",
+                      "retry": 0,
+                      "retryIntervalInSeconds": 30,
+                      "secureInput": false,
+                      "secureOutput": false
+                    },
+                    "name": "Update Bronze run status",
+                    "dependsOn": []
+                  },
+                  {
+                    "type": "Copy",
+                    "typeProperties": {
+                      "source": {
+                        "type": "SqlServerSource",
+                        "sqlReaderQuery": {
+                          "value": "@item().query_",
+                          "type": "Expression"
+                        },
+                        "partitionOption": "None",
+                        "queryTimeout": "02:00:00",
+                        "isolationLevel": "ReadUncommitted",
+                        "datasetSettings": {
+                          "type": "SqlServerTable",
+                          "typeProperties": {
+                            "database": "Tickit"
+                          },
+                          "schema": [],
+                          "externalReferences": {
+                            "connection": "0945967e-aee4-4a69-8787-b93d0d9e4ec0"
+                          },
+                          "annotations": []
+                        }
+                      },
+                      "sink": {
+                        "type": "FabricSqlDatabaseSink",
+                        "sqlWriterStoredProcedureName": {
+                          "value": "@concat('bronze.sp_IngestData_',item().object_name)",
+                          "type": "Expression"
+                        },
+                        "sqlWriterTableType": {
+                          "value": "@concat('bronze.',item().object_name,'TableType')",
+                          "type": "Expression"
+                        },
+                        "storedProcedureParameters": {
+                          "bronze_run_id": {
+                            "type": "Int16",
+                            "value": {
+                              "value": "@item().bronze_run_id",
+                              "type": "Expression"
+                            }
+                          }
+                        },
+                        "storedProcedureTableTypeParameterName": "data",
+                        "datasetSettings": {
+                          "type": "FabricSqlDatabaseTable",
+                          "typeProperties": {
+                            "schema": "bronze",
+                            "table": "table_name"
+                          },
+                          "schema": [],
+                          "connectionSettings": {
+                            "name": "Configurations",
+                            "properties": {
+                              "type": "FabricSqlDatabase",
+                              "typeProperties": {
+                                "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                                "workspaceId": "00000000-0000-0000-0000-000000000000"
+                              },
+                              "externalReferences": {
+                                "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                              },
+                              "annotations": []
+                            }
+                          },
+                          "annotations": []
+                        }
+                      },
+                      "translator": {
+                        "type": "TabularTranslator",
+                        "typeConversion": true,
+                        "typeConversionSettings": {
+                          "allowDataTruncation": true,
+                          "treatBooleanAsNumber": false
+                        }
+                      },
+                      "enableStaging": false
+                    },
+                    "policy": {
+                      "timeout": "0.12:00:00",
+                      "retry": 0,
+                      "retryIntervalInSeconds": 30,
+                      "secureInput": false,
+                      "secureOutput": false
+                    },
+                    "name": "Copy Data",
+                    "dependsOn": [
+                      {
+                        "activity": "Update Bronze run status",
+                        "dependencyConditions": [
+                          "Succeeded"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "Script",
+                    "typeProperties": {
+                      "scripts": [
+                        {
+                          "text": {
+                            "value": "EXEC dbo.sp_update_watermark_value @table, @bronze_run_id, @src_obj_id",
+                            "type": "Expression"
+                          },
+                          "type": "Query",
+                          "parameters": [
+                            {
+                              "name": "table",
+                              "type": "String",
+                              "value": {
+                                "value": "@item().object_name",
+                                "type": "Expression"
+                              },
+                              "direction": "Input"
+                            },
+                            {
+                              "name": "bronze_run_id",
+                              "type": "Int16",
+                              "value": {
+                                "value": "@item().bronze_run_id",
+                                "type": "Expression"
+                              },
+                              "direction": "Input"
+                            },
+                            {
+                              "name": "src_obj_id",
+                              "type": "Int16",
+                              "value": {
+                                "value": "@item().src_obj_id",
+                                "type": "Expression"
+                              },
+                              "direction": "Input"
+                            }
+                          ]
+                        }
+                      ],
+                      "scriptBlockExecutionTimeout": "02:00:00"
+                    },
+                    "connectionSettings": {
+                      "name": "Configurations",
+                      "properties": {
+                        "type": "FabricSqlDatabase",
+                        "typeProperties": {
+                          "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                          "workspaceId": "00000000-0000-0000-0000-000000000000"
+                        },
+                        "externalReferences": {
+                          "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                        },
+                        "annotations": []
+                      }
+                    },
+                    "policy": {
+                      "timeout": "0.12:00:00",
+                      "retry": 0,
+                      "retryIntervalInSeconds": 30,
+                      "secureInput": false,
+                      "secureOutput": false
+                    },
+                    "name": "Update Watermark",
+                    "dependsOn": [
+                      {
+                        "activity": "Copy Data",
+                        "dependencyConditions": [
+                          "Succeeded"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "Script",
+                    "typeProperties": {
+                      "scripts": [
+                        {
+                          "text": {
+                            "value": "UPDATE dbo.Bronze_runs\n\nSET status = 'COMPLETED'\n\n    ,end_time = GETDATE()\n\n    ,rows_ingested = @no_record\n\nWHERE bronze_run_id = @bronze_run_id;",
+                            "type": "Expression"
+                          },
+                          "type": "Query",
+                          "parameters": [
+                            {
+                              "name": "bronze_run_id",
+                              "type": "Int64",
+                              "value": {
+                                "value": "@item().bronze_run_id",
+                                "type": "Expression"
+                              },
+                              "direction": "Input"
+                            },
+                            {
+                              "name": "no_record",
+                              "type": "Int64",
+                              "value": {
+                                "value": "@activity('Update Watermark').output.resultSets[0].rows[0].no_record",
+                                "type": "Expression"
+                              },
+                              "direction": "Input"
+                            }
+                          ]
+                        }
+                      ],
+                      "scriptBlockExecutionTimeout": "02:00:00"
+                    },
+                    "connectionSettings": {
+                      "name": "Configurations",
+                      "properties": {
+                        "type": "FabricSqlDatabase",
+                        "typeProperties": {
+                          "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                          "workspaceId": "00000000-0000-0000-0000-000000000000"
+                        },
+                        "externalReferences": {
+                          "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                        },
+                        "annotations": []
+                      }
+                    },
+                    "policy": {
+                      "timeout": "0.12:00:00",
+                      "retry": 0,
+                      "retryIntervalInSeconds": 30,
+                      "secureInput": false,
+                      "secureOutput": false
+                    },
+                    "name": "Update Bronze run completed",
+                    "dependsOn": [
+                      {
+                        "activity": "Update Watermark",
+                        "dependencyConditions": [
+                          "Succeeded"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "SetVariable",
+                    "typeProperties": {
+                      "variableName": "pipeline_failed",
+                      "value": {
+                        "value": "@bool(true)",
+                        "type": "Expression"
+                      }
+                    },
+                    "policy": {
+                      "secureInput": false,
+                      "secureOutput": false
+                    },
+                    "name": "Set pipeline_failed",
+                    "dependsOn": [
+                      {
+                        "activity": "Copy Data",
+                        "dependencyConditions": [
+                          "Failed"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "Script",
+                    "typeProperties": {
+                      "scripts": [
+                        {
+                          "text": {
+                            "value": "UPDATE dbo.Bronze_runs\r\nSET status = 'FAILED'\r\n    ,end_time = GETDATE()\r\nWHERE bronze_run_id = @bronze_run_id;",
+                            "type": "Expression"
+                          },
+                          "type": "Query",
+                          "parameters": [
+                            {
+                              "name": "bronze_run_id",
+                              "type": "Int16",
+                              "value": {
+                                "value": "@item().bronze_run_id",
+                                "type": "Expression"
+                              },
+                              "direction": "Input"
+                            }
+                          ]
+                        }
+                      ],
+                      "scriptBlockExecutionTimeout": "02:00:00"
+                    },
+                    "connectionSettings": {
+                      "name": "Configurations",
+                      "properties": {
+                        "type": "FabricSqlDatabase",
+                        "typeProperties": {
+                          "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                          "workspaceId": "00000000-0000-0000-0000-000000000000"
+                        },
+                        "externalReferences": {
+                          "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                        },
+                        "annotations": []
+                      }
+                    },
+                    "policy": {
+                      "timeout": "0.12:00:00",
+                      "retry": 0,
+                      "retryIntervalInSeconds": 30,
+                      "secureInput": false,
+                      "secureOutput": false
+                    },
+                    "name": "Update Bronze run failed",
+                    "dependsOn": [
+                      {
+                        "activity": "Copy Data",
+                        "dependencyConditions": [
+                          "Failed"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "AppendVariable",
+                    "typeProperties": {
+                      "variableName": "pipeline_value_return",
+                      "value": {
+                        "value": "@json(concat(\n  '{',\n    '\"type\":\"TRANSFORM\",',\n    '\"status\": \"FAILED\",',\n    '\"bronze_run_id\": ',item().bronze_run_id,',',\n    '\"TID\":',string(pipeline().parameters.p_TID),',',\n    '\"WID\":',string(pipeline().parameters.p_WID),',',\n    '\"message\":\"',activity('Copy Data').error.message,'\"',\n  '}'\n))",
+                        "type": "Expression"
+                      }
+                    },
+                    "name": "Append error value return",
+                    "dependsOn": [
+                      {
+                        "activity": "Copy Data",
+                        "dependencyConditions": [
+                          "Failed"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "AppendVariable",
+                    "typeProperties": {
+                      "variableName": "pipeline_value_return",
+                      "value": {
+                        "value": "@json(concat(\n  '{',\n    '\"type\":\"TRANSFORM\",',\n    '\"status\": \"SUCCESS\",',\n    '\"bronze_run_id\": ',item().bronze_run_id,',',\n    '\"TID\":',string(pipeline().parameters.p_TID),',',\n    '\"WID\":',string(pipeline().parameters.p_WID),',',\n    '\"message\":\"\"',\n  '}'\n))",
+                        "type": "Expression"
+                      }
+                    },
+                    "name": "Append success value return",
+                    "dependsOn": [
+                      {
+                        "activity": "Update Bronze run completed",
+                        "dependencyConditions": [
+                          "Succeeded"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "name": "If any ingestion failed",
+              "dependsOn": []
+            }
+          ]
+        },
+        "name": "Ingest tickit to Bronze",
+        "dependsOn": [
+          {
+            "activity": "Create Bronze runs",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "SetVariable",
+        "typeProperties": {
+          "variableName": "pipelineReturnValue",
+          "value": [
+            {
+              "key": "pipeline_value_return",
+              "value": {
+                "type": "Expression",
+                "content": "@variables('pipeline_value_return')"
+              }
+            }
+          ],
+          "setSystemVariable": true
+        },
+        "policy": {
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Set return value",
+        "dependsOn": [
+          {
+            "activity": "Ingest tickit to Bronze",
+            "dependencyConditions": [
+              "Completed"
+            ]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "p_batch_id": {
+        "type": "int",
+        "defaultValue": 6
+      },
+      "p_src_id": {
+        "type": "int",
+        "defaultValue": 1
+      },
+      "p_TID": {
+        "type": "int"
+      },
+      "p_WID": {
+        "type": "int"
+      }
+    },
+    "variables": {
+      "pipeline_failed": {
+        "type": "Boolean",
+        "defaultValue": false
+      },
+      "pipeline_value_return": {
+        "type": "Array"
+      }
+    }
+  }
+}

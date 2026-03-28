@@ -1,0 +1,848 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "type": "Lookup",
+        "typeProperties": {
+          "source": {
+            "type": "FabricSqlDatabaseSource",
+            "sqlReaderQuery": "SELECT *\r\nFROM [dbo].[vw_WorkflowDefinitions]\r\nWHERE [workflow_name] = 'tickit_data_pipeline'\r\n    AND workflow_enable = 1\r\n    AND transform_enable = 1;",
+            "partitionOption": "None",
+            "queryTimeout": "02:00:00"
+          },
+          "datasetSettings": {
+            "type": "FabricSqlDatabaseTable",
+            "typeProperties": {
+              "schema": "dbo",
+              "table": "v_WorkflowDetails"
+            },
+            "schema": [],
+            "connectionSettings": {
+              "name": "Configurations",
+              "properties": {
+                "type": "FabricSqlDatabase",
+                "typeProperties": {
+                  "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                  "workspaceId": "00000000-0000-0000-0000-000000000000"
+                },
+                "externalReferences": {
+                  "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                },
+                "annotations": []
+              }
+            },
+            "annotations": []
+          },
+          "firstRowOnly": false
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Get workflow details",
+        "dependsOn": []
+      },
+      {
+        "type": "IfCondition",
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(activity('Get workflow details').output.count, 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "type": "Script",
+              "typeProperties": {
+                "scripts": [
+                  {
+                    "text": {
+                      "value": "EXEC dbo.sp_CreateWorkflowOperations @workflow_id, @batch_id, @caller",
+                      "type": "Expression"
+                    },
+                    "type": "Query",
+                    "parameters": [
+                      {
+                        "name": "workflow_id",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('workflow_id')",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      },
+                      {
+                        "name": "batch_id",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('batch_id')",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      },
+                      {
+                        "name": "caller",
+                        "type": "String",
+                        "value": {
+                          "value": "@pipeline().parameters.p_run_by",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      }
+                    ]
+                  }
+                ],
+                "scriptBlockExecutionTimeout": "02:00:00"
+              },
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
+                }
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Create Workflow Operation",
+              "description": "Create Workflow Operation",
+              "dependsOn": [
+                {
+                  "activity": "Set Workflow id variable",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "WID",
+                "value": {
+                  "value": "@activity('Create Workflow Operation').output.resultSets[0].rows[0].WID",
+                  "type": "Expression"
+                }
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Set WPD variable",
+              "dependsOn": [
+                {
+                  "activity": "Create Workflow Operation",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "workflow_id",
+                "value": {
+                  "value": "@activity('Get workflow details').output.value[0].workflow_id",
+                  "type": "Expression"
+                }
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Set Workflow id variable",
+              "dependsOn": [
+                {
+                  "activity": "Set Batch id variable",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "batch_id",
+                "value": {
+                  "value": "@activity('Create Batch').output.resultSets[0].rows[0].batch_id",
+                  "type": "Expression"
+                }
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Set Batch id variable",
+              "dependsOn": [
+                {
+                  "activity": "Create Batch",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Script",
+              "typeProperties": {
+                "scripts": [
+                  {
+                    "text": {
+                      "value": "EXECUTE [dbo].[sp_FindAndCreateBatch] ",
+                      "type": "Expression"
+                    },
+                    "type": "Query"
+                  }
+                ],
+                "scriptBlockExecutionTimeout": "02:00:00"
+              },
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
+                }
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Create Batch",
+              "dependsOn": []
+            },
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "transforms",
+                "value": {
+                  "value": "@activity('Get workflow details').output.value",
+                  "type": "Expression"
+                }
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Set transformations",
+              "dependsOn": [
+                {
+                  "activity": "Create Batch",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "src_id",
+                "value": {
+                  "value": "@activity('Get workflow details').output.value[0].src_id",
+                  "type": "Expression"
+                }
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Set src_id",
+              "dependsOn": [
+                {
+                  "activity": "Create Batch",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            }
+          ],
+          "ifFalseActivities": [
+            {
+              "type": "Fail",
+              "typeProperties": {
+                "message": "No enabled workflows or transformations found. Nothing to execute.",
+                "errorCode": "WF001"
+              },
+              "name": "Workflow error message",
+              "dependsOn": []
+            }
+          ]
+        },
+        "name": "Create Batch and workflowoperations",
+        "description": "",
+        "dependsOn": [
+          {
+            "activity": "Get workflow details",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Script",
+        "typeProperties": {
+          "scripts": [
+            {
+              "text": {
+                "value": "UPDATE dbo.batches\r\nSET status = 'SUCCESS'\r\n    ,end_time = GETDATE()\r\nWHERE batch_id = @batch_id",
+                "type": "Expression"
+              },
+              "type": "Query",
+              "parameters": [
+                {
+                  "name": "batch_id",
+                  "type": "Int64",
+                  "value": {
+                    "value": "@variables('batch_id')",
+                    "type": "Expression"
+                  },
+                  "direction": "Input"
+                }
+              ]
+            }
+          ],
+          "scriptBlockExecutionTimeout": "02:00:00"
+        },
+        "connectionSettings": {
+          "name": "Configurations",
+          "properties": {
+            "type": "FabricSqlDatabase",
+            "typeProperties": {
+              "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+              "workspaceId": "00000000-0000-0000-0000-000000000000"
+            },
+            "externalReferences": {
+              "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+            },
+            "annotations": []
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Update batch success",
+        "dependsOn": [
+          {
+            "activity": "If SRC to Bronze has failed",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Script",
+        "typeProperties": {
+          "scripts": [
+            {
+              "text": {
+                "value": "UPDATE dbo.TransformationOperations\r\nSET status = 'SUCCESS'\r\n    ,end_time = GETDATE()\r\nWHERE TID = @TID;\r\n",
+                "type": "Expression"
+              },
+              "type": "Query",
+              "parameters": [
+                {
+                  "name": "TID",
+                  "type": "Int16",
+                  "value": {
+                    "value": "@variables('TID')",
+                    "type": "Expression"
+                  },
+                  "direction": "Input"
+                }
+              ]
+            }
+          ],
+          "scriptBlockExecutionTimeout": "02:00:00"
+        },
+        "connectionSettings": {
+          "name": "Configurations",
+          "properties": {
+            "type": "FabricSqlDatabase",
+            "typeProperties": {
+              "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+              "workspaceId": "00000000-0000-0000-0000-000000000000"
+            },
+            "externalReferences": {
+              "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+            },
+            "annotations": []
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "update Trans success",
+        "dependsOn": [
+          {
+            "activity": "Update batch success",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Script",
+        "typeProperties": {
+          "scripts": [
+            {
+              "text": {
+                "value": "UPDATE dbo.WorkflowOperations\nSET status = 'SUCCESS'\n    ,end_time = GETDATE()\nWHERE WID = @WID;",
+                "type": "Expression"
+              },
+              "type": "Query",
+              "parameters": [
+                {
+                  "name": "WID",
+                  "type": "Int16",
+                  "value": {
+                    "value": "@variables('WID')",
+                    "type": "Expression"
+                  },
+                  "direction": "Input"
+                }
+              ]
+            }
+          ],
+          "scriptBlockExecutionTimeout": "02:00:00"
+        },
+        "connectionSettings": {
+          "name": "Configurations",
+          "properties": {
+            "type": "FabricSqlDatabase",
+            "typeProperties": {
+              "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+              "workspaceId": "00000000-0000-0000-0000-000000000000"
+            },
+            "externalReferences": {
+              "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+            },
+            "annotations": []
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "update wf success",
+        "dependsOn": [
+          {
+            "activity": "update Trans success",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "IfCondition",
+        "typeProperties": {
+          "expression": {
+            "value": "@equals(1, 1)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "type": "Script",
+              "typeProperties": {
+                "scripts": [
+                  {
+                    "text": {
+                      "value": "EXEC dbo.sp_UpdateFailedStatus @messages",
+                      "type": "Expression"
+                    },
+                    "type": "Query",
+                    "parameters": [
+                      {
+                        "name": "messages",
+                        "type": "String",
+                        "value": {
+                          "value": "@string(variables('pipeline_errors'))",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      }
+                    ]
+                  }
+                ],
+                "scriptBlockExecutionTimeout": "02:00:00"
+              },
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
+                }
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Update transform_WF failed",
+              "dependsOn": []
+            },
+            {
+              "type": "Script",
+              "typeProperties": {
+                "scripts": [
+                  {
+                    "text": {
+                      "value": "UPDATE dbo.batches\r\nSET status = 'FAILED'\r\n    ,end_time = GETDATE()\r\nWHERE batch_id = @batch_id",
+                      "type": "Expression"
+                    },
+                    "type": "Query",
+                    "parameters": [
+                      {
+                        "name": "batch_id",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('batch_id')",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      }
+                    ]
+                  }
+                ],
+                "scriptBlockExecutionTimeout": "02:00:00"
+              },
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
+                }
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Update batch failed",
+              "dependsOn": [
+                {
+                  "activity": "Update transform_WF failed",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "failed block",
+        "dependsOn": [
+          {
+            "activity": "If SRC to Bronze has failed",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "IfCondition",
+        "typeProperties": {
+          "expression": {
+            "value": "@equals(1, 1)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "type": "Script",
+              "typeProperties": {
+                "scripts": [
+                  {
+                    "text": {
+                      "value": "EXEC dbo.sp_CreateTransformationOperation @WID, @transform_id",
+                      "type": "Expression"
+                    },
+                    "type": "Query",
+                    "parameters": [
+                      {
+                        "name": "WID",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('WID')",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      },
+                      {
+                        "name": "transform_id",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('transforms')[0]['transform_id']",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      }
+                    ]
+                  }
+                ],
+                "scriptBlockExecutionTimeout": "02:00:00"
+              },
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
+                }
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "SRC2Bronze Transform creation",
+              "description": "Transformation for Source to Bronze",
+              "dependsOn": []
+            },
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "TID",
+                "value": {
+                  "value": "@int(activity('SRC2Bronze Transform creation').output.resultSets[0].rows[0].TID)",
+                  "type": "Expression"
+                }
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Set TID",
+              "dependsOn": [
+                {
+                  "activity": "SRC2Bronze Transform creation",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "InvokePipeline",
+              "typeProperties": {
+                "parameters": {
+                  "p_batch_id": {
+                    "value": "@variables('batch_id')",
+                    "type": "Expression"
+                  },
+                  "p_src_id": {
+                    "value": "@variables('src_id')",
+                    "type": "Expression"
+                  },
+                  "p_TID": {
+                    "value": "@variables('TID')",
+                    "type": "Expression"
+                  },
+                  "p_WID": {
+                    "value": "@variables('WID')",
+                    "type": "Expression"
+                  }
+                },
+                "waitOnCompletion": true,
+                "workspaceId": "00000000-0000-0000-0000-000000000000",
+                "pipelineId": "d6432940-4d5d-b3a4-46b8-a01de5b2505b",
+                "operationType": "InvokeFabricPipeline"
+              },
+              "externalReferences": {
+                "connection": "4cf81c31-cd11-429e-87a5-ca6fcf9e2c80"
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Trans SRC to Bronze",
+              "dependsOn": [
+                {
+                  "activity": "Set TID",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "pipeline_errors",
+                "value": {
+                  "value": "@activity('Trans SRC to Bronze').output.properties.returnValue.pipeline_value_return",
+                  "type": "Expression"
+                }
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Set pipeline error variable",
+              "dependsOn": [
+                {
+                  "activity": "Trans SRC to Bronze",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            }
+          ],
+          "ifFalseActivities": [
+            {
+              "type": "Fail",
+              "typeProperties": {
+                "message": "abc",
+                "errorCode": "abc"
+              },
+              "name": "Fail1",
+              "dependsOn": []
+            }
+          ]
+        },
+        "name": "Source to Bronze block",
+        "dependsOn": [
+          {
+            "activity": "Create Batch and workflowoperations",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "IfCondition",
+        "typeProperties": {
+          "expression": {
+            "value": "@equals(variables('pipeline_errors')[0].status, 'FAILED')",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "type": "Fail",
+              "typeProperties": {
+                "message": "abc",
+                "errorCode": "abc"
+              },
+              "name": "raise error",
+              "dependsOn": []
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "If SRC to Bronze has failed",
+        "dependsOn": [
+          {
+            "activity": "Source to Bronze block",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "p_run_by": {
+        "type": "string",
+        "defaultValue": "manual by tan"
+      }
+    },
+    "variables": {
+      "workflow_id": {
+        "type": "Integer"
+      },
+      "WID": {
+        "type": "String"
+      },
+      "batch_id": {
+        "type": "Integer"
+      },
+      "transforms": {
+        "type": "Array"
+      },
+      "src_id": {
+        "type": "Integer"
+      },
+      "TID": {
+        "type": "Integer"
+      },
+      "pipeline_failed": {
+        "type": "Boolean"
+      },
+      "pipeline_errors": {
+        "type": "Array"
+      }
+    }
+  }
+}

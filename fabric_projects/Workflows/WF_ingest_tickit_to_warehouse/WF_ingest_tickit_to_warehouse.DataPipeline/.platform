@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "DataPipeline",
+    "displayName": "WF_ingest_tickit_to_warehouse"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "4b9806c5-469e-8f32-4589-7f0c50683528"
+  }
+}

@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE dbo.sp_CreateTransformationOperation
+CREATE   PROCEDURE dbo.sp_CreateTransformationOperation
 (
     @WID INT,
     @transform_id INT

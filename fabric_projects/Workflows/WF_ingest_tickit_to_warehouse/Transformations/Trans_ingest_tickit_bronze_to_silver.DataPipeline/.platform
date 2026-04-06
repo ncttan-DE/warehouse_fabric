@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "DataPipeline",
+    "displayName": "Trans_ingest_tickit_bronze_to_silver"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "1fee024d-0dff-96ae-482c-95595727aff5"
+  }
+}

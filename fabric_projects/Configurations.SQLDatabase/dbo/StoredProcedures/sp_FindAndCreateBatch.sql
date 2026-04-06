@@ -9,9 +9,9 @@ BEGIN
             ,@is_retry BIT
 
     SELECT @Batch_id = batch_id
+            ,@today = batch_date
     FROM dbo.Batches
-    WHERE batch_date = @today
-        AND status IN ('RUNNING', 'FAILED')
+    WHERE status IN ('RUNNING', 'FAILED')
     ORDER BY created_time DESC;
 
     IF(@Batch_id IS NOT NULL)

@@ -1,0 +1,261 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "type": "Script",
+        "typeProperties": {
+          "scripts": [
+            {
+              "text": {
+                "value": "SELECT a.batch_id\r\n\r\n        ,a.bronze_run_id\r\n\r\n        ,a.status AS bronze_run_status\r\n\r\n        ,s.object_name\r\n\r\n        ,a.rows_ingested\r\n\r\nFROM dbo.bronze_runs a\r\n\r\nINNER JOIN dbo.source_objects s ON s.src_obj_id = a.src_obj_id\r\n\r\nWHERE a.batch_id = @batch_id\r\n\r\n    AND a.status = 'COMPLETED'",
+                "type": "Expression"
+              },
+              "type": "Query",
+              "parameters": [
+                {
+                  "name": "batch_id",
+                  "type": "Int64",
+                  "value": {
+                    "value": "@pipeline().parameters.p_batch_id",
+                    "type": "Expression"
+                  },
+                  "direction": "Input"
+                }
+              ]
+            }
+          ],
+          "scriptBlockExecutionTimeout": "02:00:00"
+        },
+        "connectionSettings": {
+          "name": "Configurations",
+          "properties": {
+            "type": "FabricSqlDatabase",
+            "typeProperties": {
+              "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+              "workspaceId": "00000000-0000-0000-0000-000000000000"
+            },
+            "externalReferences": {
+              "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+            },
+            "annotations": []
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Get bronze runs to transform to Silver",
+        "dependsOn": []
+      },
+      {
+        "type": "IfCondition",
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(activity('Get bronze runs to transform to Silver').output.resultSets[0].rowCount, 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [],
+          "ifFalseActivities": [
+            {
+              "type": "Fail",
+              "typeProperties": {
+                "message": "ERROR",
+                "errorCode": "ERROR"
+              },
+              "name": "no bronze run need to transform",
+              "dependsOn": [
+                {
+                  "activity": "Set variable - failed",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "AppendVariable",
+              "typeProperties": {
+                "variableName": "pipeline_return_value",
+                "value": {
+                  "value": "@json(concat(\n  '{',\n    '\"type\":\"TRANSFORM\",',\n    '\"status\": \"SKIP\",',\n    '\"TID\":',string(pipeline().parameters.p_TID),',',\n    '\"WID\":',string(pipeline().parameters.p_WID),',',\n    '\"message\":\"No bronze run need to transform or not success\"',\n  '}'\n))",
+                  "type": "Expression"
+                }
+              },
+              "name": "Set variable - failed",
+              "dependsOn": []
+            }
+          ]
+        },
+        "name": "Any bronze runs success",
+        "dependsOn": [
+          {
+            "activity": "Get bronze runs to transform to Silver",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "SetVariable",
+        "typeProperties": {
+          "variableName": "pipelineReturnValue",
+          "value": [
+            {
+              "key": "pipeline_return_value",
+              "value": {
+                "type": "Expression",
+                "content": "@variables('pipeline_return_value')"
+              }
+            }
+          ],
+          "setSystemVariable": true
+        },
+        "policy": {
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Set return value - failed",
+        "dependsOn": [
+          {
+            "activity": "Any bronze runs success",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "ForEach",
+        "typeProperties": {
+          "items": {
+            "value": "@activity('Get bronze runs to transform to Silver').output.resultSets[0].rows",
+            "type": "Expression"
+          },
+          "activities": [
+            {
+              "type": "SqlServerStoredProcedure",
+              "typeProperties": {
+                "storedProcedureName": {
+                  "value": "@concat('silver.sp_transform_bronze_to_silver_', item().object_name)",
+                  "type": "Expression"
+                },
+                "storedProcedureParameters": {
+                  "bronze_run_id": {
+                    "value": {
+                      "value": "@item().bronze_run_id",
+                      "type": "Expression"
+                    },
+                    "type": "Int64"
+                  }
+                }
+              },
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
+                }
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Transform",
+              "dependsOn": []
+            },
+            {
+              "type": "AppendVariable",
+              "typeProperties": {
+                "variableName": "pipeline_return_value",
+                "value": {
+                  "value": "@json(concat(\n  '{',\n    '\"type\":\"TRANSFORM\",',\n    '\"status\": \"SUCCESS\",',\n    '\"bronze_run_id\":',item().bronze_run_id,',',\n    '\"TID\":',string(pipeline().parameters.p_TID),',',\n    '\"WID\":',string(pipeline().parameters.p_WID),',',\n    '\"message\":\"Object ',item().object_name,' has been transform to Silver\",',\n  '}'\n))",
+                  "type": "Expression"
+                }
+              },
+              "name": "Set variable - success",
+              "dependsOn": [
+                {
+                  "activity": "Transform",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "name": "Transform Bronze to Silver",
+        "dependsOn": [
+          {
+            "activity": "Any bronze runs success",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "SetVariable",
+        "typeProperties": {
+          "variableName": "pipelineReturnValue",
+          "value": [
+            {
+              "key": "pipeline_return_value",
+              "value": {
+                "type": "Expression",
+                "content": "@variables('pipeline_return_value')"
+              }
+            }
+          ],
+          "setSystemVariable": true
+        },
+        "policy": {
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Set return value - success",
+        "dependsOn": [
+          {
+            "activity": "Transform Bronze to Silver",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "p_batch_id": {
+        "type": "int"
+      },
+      "p_WID": {
+        "type": "int"
+      },
+      "p_TID": {
+        "type": "int"
+      }
+    },
+    "variables": {
+      "bronze_run_id": {
+        "type": "String"
+      },
+      "pipeline_return_value": {
+        "type": "Array"
+      }
+    }
+  }
+}

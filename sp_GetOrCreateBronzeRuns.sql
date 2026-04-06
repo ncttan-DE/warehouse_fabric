@@ -32,8 +32,7 @@ BEGIN
         --   - PENDING (not yet processed)
         --   - FAILED (previous attempt failed)
         --------------------------------------------------
-        SELECT 
-            br.bronze_run_id,
+        SELECT br.bronze_run_id,
             br.batch_id,
             br.src_obj_id,
             so.object_name,
@@ -49,7 +48,7 @@ BEGIN
         FROM dbo.Bronze_runs br
         INNER JOIN dbo.Source_objects so ON br.src_obj_id = so.src_obj_id
         WHERE br.batch_id = @batch_id
-            AND br.status IN ('PENDING', 'RUNNING', 'FAILED');
+            AND br.status IN ('PENDING', 'FAILED');
 
         RETURN;
     END
@@ -75,8 +74,7 @@ BEGIN
     --------------------------------------------------
     -- 4. Return all newly created records (PENDING)
     --------------------------------------------------
-    SELECT 
-        br.bronze_run_id,
+    SELECT br.bronze_run_id,
         br.batch_id,
         br.src_obj_id,
         so.object_name,

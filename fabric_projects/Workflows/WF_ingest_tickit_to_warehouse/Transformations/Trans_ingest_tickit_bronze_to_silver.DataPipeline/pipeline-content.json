@@ -186,12 +186,31 @@
                   "type": "Expression"
                 }
               },
-              "name": "Set variable - success",
+              "name": "Transform - Set variable - success",
               "dependsOn": [
                 {
                   "activity": "Transform",
                   "dependencyConditions": [
                     "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "AppendVariable",
+              "typeProperties": {
+                "variableName": "pipeline_return_value",
+                "value": {
+                  "value": "@json(concat(\n  '{',\n    '\"type\":\"TRANSFORM\",',\n    '\"status\": \"FAILED\",',\n    '\"bronze_run_id\":',item().bronze_run_id,',',\n    '\"TID\":',string(pipeline().parameters.p_TID),',',\n    '\"WID\":',string(pipeline().parameters.p_WID),',',\n    '\"message\":\"Object ',item().object_name,' failed to transform to Silver\",',\n  '}'\n))",
+                  "type": "Expression"
+                }
+              },
+              "name": "Transform - Set variable - failed",
+              "dependsOn": [
+                {
+                  "activity": "Transform",
+                  "dependencyConditions": [
+                    "Failed"
                   ]
                 }
               ]
@@ -201,7 +220,7 @@
         "name": "Transform Bronze to Silver",
         "dependsOn": [
           {
-            "activity": "Any bronze runs success",
+            "activity": "Refresh Silver tables",
             "dependencyConditions": [
               "Succeeded"
             ]
@@ -231,6 +250,42 @@
         "dependsOn": [
           {
             "activity": "Transform Bronze to Silver",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "SqlServerStoredProcedure",
+        "typeProperties": {
+          "storedProcedureName": "[silver].[sp_refresh_silver_tables]"
+        },
+        "connectionSettings": {
+          "name": "Configurations",
+          "properties": {
+            "type": "FabricSqlDatabase",
+            "typeProperties": {
+              "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+              "workspaceId": "00000000-0000-0000-0000-000000000000"
+            },
+            "externalReferences": {
+              "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+            },
+            "annotations": []
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Refresh Silver tables",
+        "dependsOn": [
+          {
+            "activity": "Any bronze runs success",
             "dependencyConditions": [
               "Succeeded"
             ]

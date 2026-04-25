@@ -1,0 +1,328 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "type": "Filter",
+        "typeProperties": {
+          "items": {
+            "value": "@pipeline().parameters.p_messages",
+            "type": "Expression"
+          },
+          "condition": {
+            "value": "@equals(item().status, 'FAILED')",
+            "type": "Expression"
+          }
+        },
+        "name": "Filter items failed",
+        "dependsOn": []
+      },
+      {
+        "type": "IfCondition",
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(variables('no_item_failed'), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "pipelineReturnValue",
+                "value": [
+                  {
+                    "key": "return_value_pipeline",
+                    "value": {
+                      "type": "Expression",
+                      "content": "@json(concat(\n  '{',\n    '\"status\": \"FAILED\",',\n    '\"items\":',string(variables('items_failed')),',',\n  '}'\n))"
+                    }
+                  }
+                ],
+                "setSystemVariable": true
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "return value pipeline - failed",
+              "dependsOn": []
+            },
+            {
+              "type": "Fail",
+              "typeProperties": {
+                "message": "Found items failed",
+                "errorCode": "CHECK_ERROR"
+              },
+              "name": "Raise error",
+              "dependsOn": [
+                {
+                  "activity": "Update batch failed",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Script",
+              "typeProperties": {
+                "scripts": [
+                  {
+                    "text": {
+                      "value": "EXEC dbo.sp_UpdateFailedStatus @messages",
+                      "type": "Expression"
+                    },
+                    "type": "Query",
+                    "parameters": [
+                      {
+                        "name": "messages",
+                        "type": "String",
+                        "value": {
+                          "value": "@string(variables('items_failed'))",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      }
+                    ]
+                  }
+                ],
+                "scriptBlockExecutionTimeout": "02:00:00"
+              },
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
+                }
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Update message to transform and workflow",
+              "dependsOn": [
+                {
+                  "activity": "return value pipeline - failed",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Script",
+              "typeProperties": {
+                "scripts": [
+                  {
+                    "text": {
+                      "value": "UPDATE dbo.batches\r\nSET status = 'FAILED'\r\n\r\n    ,end_time = GETDATE()\r\n\r\nWHERE batch_id = @batch_id",
+                      "type": "Expression"
+                    },
+                    "type": "Query",
+                    "parameters": [
+                      {
+                        "name": "batch_id",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@pipeline().parameters.p_batch",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      }
+                    ]
+                  }
+                ],
+                "scriptBlockExecutionTimeout": "02:00:00"
+              },
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
+                }
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Update batch failed",
+              "dependsOn": [
+                {
+                  "activity": "Update message to transform and workflow",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            }
+          ],
+          "ifFalseActivities": [
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "pipelineReturnValue",
+                "value": [
+                  {
+                    "key": "return_value_pipeline",
+                    "value": {
+                      "type": "Expression",
+                      "content": "@json(concat(\n  '{',\n    '\"status\": \"SUCCESS\",',\n    '\"items\": ,',\n  '}'\n))"
+                    }
+                  }
+                ],
+                "setSystemVariable": true
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "return value pipeline - success",
+              "dependsOn": []
+            }
+          ]
+        },
+        "name": "Check any items failed",
+        "dependsOn": [
+          {
+            "activity": "Set items failed",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "SetVariable",
+        "typeProperties": {
+          "variableName": "no_item_failed",
+          "value": {
+            "value": "@activity('Filter items failed').output.FilteredItemsCount",
+            "type": "Expression"
+          }
+        },
+        "policy": {
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Set number of failed item",
+        "dependsOn": [
+          {
+            "activity": "Filter items failed",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "SetVariable",
+        "typeProperties": {
+          "variableName": "items_failed",
+          "value": {
+            "value": "@activity('Filter items failed').output.Value",
+            "type": "Expression"
+          }
+        },
+        "policy": {
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Set items failed",
+        "dependsOn": [
+          {
+            "activity": "Set number of failed item",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "p_messages": {
+        "type": "array",
+        "defaultValue": [
+          {
+            "type": "TRANSFORM",
+            "status": "FAILED",
+            "bronze_run_id": 298,
+            "TID": 153,
+            "WID": 117,
+            "message": "Failure happened on 'destination' side. ErrorCode=SqlColumnNameNotExist,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=Column 'salesid' does not exist in the target table 'data'.,Source=Microsoft.DataTransfer.Connectors.MSSQL,'"
+          },
+          {
+            "type": "TRANSFORM",
+            "status": "FAILED",
+            "bronze_run_id": 297,
+            "TID": 153,
+            "WID": 117,
+            "message": "Failure happened on 'Source' side. ErrorCode=SqlOperationFailed,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=A database operation failed with the following error: 'Operand type clash: uniqueidentifier is incompatible with smallint',Source=,''Type=System.Data.SqlClient.SqlException,Message=Operand type clash: uniqueidentifier is incompatible with smallint,Source=.Net SqlClient Data Provider,SqlErrorNumber=206,Class=16,ErrorCode=-2146232060,State=2,Errors=[{Class=16,Number=206,State=2,Message=Operand type clash: uniqueidentifier is incompatible with smallint,},],'"
+          },
+          {
+            "type": "TRANSFORM",
+            "status": "FAILED",
+            "bronze_run_id": 301,
+            "TID": 153,
+            "WID": 117,
+            "message": "Failure happened on 'Source' side. ErrorCode=SqlOperationFailed,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=A database operation failed with the following error: 'Operand type clash: uniqueidentifier is incompatible with smallint',Source=,''Type=System.Data.SqlClient.SqlException,Message=Operand type clash: uniqueidentifier is incompatible with smallint,Source=.Net SqlClient Data Provider,SqlErrorNumber=206,Class=16,ErrorCode=-2146232060,State=2,Errors=[{Class=16,Number=206,State=2,Message=Operand type clash: uniqueidentifier is incompatible with smallint,},],'"
+          },
+          {
+            "type": "TRANSFORM",
+            "status": "FAILED",
+            "bronze_run_id": 296,
+            "TID": 153,
+            "WID": 117,
+            "message": "Failure happened on 'Source' side. ErrorCode=SqlOperationFailed,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=A database operation failed with the following error: 'Operand type clash: uniqueidentifier is incompatible with int',Source=,''Type=System.Data.SqlClient.SqlException,Message=Operand type clash: uniqueidentifier is incompatible with int,Source=.Net SqlClient Data Provider,SqlErrorNumber=206,Class=16,ErrorCode=-2146232060,State=2,Errors=[{Class=16,Number=206,State=2,Message=Operand type clash: uniqueidentifier is incompatible with int,},],'"
+          },
+          {
+            "type": "TRANSFORM",
+            "status": "SUCCESS",
+            "bronze_run_id": 300,
+            "TID": 153,
+            "WID": 117,
+            "message": ""
+          }
+        ]
+      },
+      "p_TID": {
+        "type": "int"
+      },
+      "p_WID": {
+        "type": "int"
+      },
+      "p_batch": {
+        "type": "int"
+      }
+    },
+    "variables": {
+      "no_item_failed": {
+        "type": "Integer"
+      },
+      "return_value": {
+        "type": "Array"
+      },
+      "items_failed": {
+        "type": "Array"
+      }
+    }
+  }
+}

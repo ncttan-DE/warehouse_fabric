@@ -121,7 +121,7 @@
               "description": "Create Workflow Operation",
               "dependsOn": [
                 {
-                  "activity": "Set Workflow id variable",
+                  "activity": "Create Batch",
                   "dependencyConditions": [
                     "Succeeded"
                   ]
@@ -167,7 +167,7 @@
               "name": "Set Workflow id variable",
               "dependsOn": [
                 {
-                  "activity": "Set Batch id variable",
+                  "activity": "Create Batch",
                   "dependencyConditions": [
                     "Succeeded"
                   ]
@@ -238,29 +238,6 @@
             {
               "type": "SetVariable",
               "typeProperties": {
-                "variableName": "transforms",
-                "value": {
-                  "value": "@activity('Get workflow details').output.value",
-                  "type": "Expression"
-                }
-              },
-              "policy": {
-                "secureInput": false,
-                "secureOutput": false
-              },
-              "name": "Set transformations",
-              "dependsOn": [
-                {
-                  "activity": "Create Batch",
-                  "dependencyConditions": [
-                    "Succeeded"
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "SetVariable",
-              "typeProperties": {
                 "variableName": "src_id",
                 "value": {
                   "value": "@activity('Get workflow details').output.value[0].src_id",
@@ -275,6 +252,144 @@
               "dependsOn": [
                 {
                   "activity": "Create Batch",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Filter",
+              "typeProperties": {
+                "items": {
+                  "value": "@activity('Get workflow details').output.value",
+                  "type": "Expression"
+                },
+                "condition": {
+                  "value": "@and(equals(item().step_order, 1), equals(item().transform_enable, true))",
+                  "type": "Expression"
+                }
+              },
+              "name": "Get SRC2Bronze transformation",
+              "description": "Since the SRC2Bronze transformation will be ordered in step 1, the conditions will be:\n- transform_enable = True\n- step_order = 1",
+              "dependsOn": [
+                {
+                  "activity": "Create Batch",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "SRC2Bronze_transform",
+                "value": {
+                  "value": "@activity('Get SRC2Bronze transformation').output.Value",
+                  "type": "Expression"
+                }
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Set SRC2Bzone variable",
+              "dependsOn": [
+                {
+                  "activity": "Get SRC2Bronze transformation",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Filter",
+              "typeProperties": {
+                "items": {
+                  "value": "@activity('Get workflow details').output.value",
+                  "type": "Expression"
+                },
+                "condition": {
+                  "value": "@and(equals(item().step_order, 2), equals(item().transform_enable, true))",
+                  "type": "Expression"
+                }
+              },
+              "name": "Get Bronze2Silver transformation",
+              "description": "Since the Bronze2Silver transformation will be ordered in step 2, the conditions will be:\n- transform_enable = True\n- step_order = 2",
+              "dependsOn": [
+                {
+                  "activity": "Create Batch",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "Bronze2Silver_transform",
+                "value": {
+                  "value": "@activity('Get Bronze2Silver transformation').output.Value",
+                  "type": "Expression"
+                }
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Set Bronze2Silver variable",
+              "dependsOn": [
+                {
+                  "activity": "Get Bronze2Silver transformation",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Filter",
+              "typeProperties": {
+                "items": {
+                  "value": "@activity('Get workflow details').output.value",
+                  "type": "Expression"
+                },
+                "condition": {
+                  "value": "@and(equals(item().step_order, 3), equals(item().transform_enable, true))",
+                  "type": "Expression"
+                }
+              },
+              "name": "Get Silver2Gold transformation",
+              "description": "Since the SRC2Bronze transformation will be ordered in step 3, the conditions will be:\n- transform_enable = True\n- step_order = 3",
+              "dependsOn": [
+                {
+                  "activity": "Create Batch",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "Silver2Gold_transform",
+                "value": {
+                  "value": "@activity('Get Silver2Gold transformation').output.Value",
+                  "type": "Expression"
+                }
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Set Silver2Gold variable",
+              "dependsOn": [
+                {
+                  "activity": "Get Silver2Gold transformation",
                   "dependencyConditions": [
                     "Succeeded"
                   ]
@@ -354,63 +469,7 @@
         "name": "Update batch success",
         "dependsOn": [
           {
-            "activity": "Bronze to Silver block",
-            "dependencyConditions": [
-              "Succeeded"
-            ]
-          }
-        ]
-      },
-      {
-        "type": "Script",
-        "typeProperties": {
-          "scripts": [
-            {
-              "text": {
-                "value": "UPDATE dbo.TransformationOperations\r\nSET status = 'SUCCESS'\r\n    ,end_time = GETDATE()\r\nWHERE TID = @TID;\r\n",
-                "type": "Expression"
-              },
-              "type": "Query",
-              "parameters": [
-                {
-                  "name": "TID",
-                  "type": "Int16",
-                  "value": {
-                    "value": "@variables('TID')",
-                    "type": "Expression"
-                  },
-                  "direction": "Input"
-                }
-              ]
-            }
-          ],
-          "scriptBlockExecutionTimeout": "02:00:00"
-        },
-        "connectionSettings": {
-          "name": "Configurations",
-          "properties": {
-            "type": "FabricSqlDatabase",
-            "typeProperties": {
-              "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
-              "workspaceId": "00000000-0000-0000-0000-000000000000"
-            },
-            "externalReferences": {
-              "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
-            },
-            "annotations": []
-          }
-        },
-        "policy": {
-          "timeout": "0.12:00:00",
-          "retry": 0,
-          "retryIntervalInSeconds": 30,
-          "secureInput": false,
-          "secureOutput": false
-        },
-        "name": "update src to bronze Trans success",
-        "dependsOn": [
-          {
-            "activity": "If SRC to Bronze has failed",
+            "activity": "If Silver2Gold is enable",
             "dependencyConditions": [
               "Succeeded"
             ]
@@ -477,133 +536,7 @@
         "type": "IfCondition",
         "typeProperties": {
           "expression": {
-            "value": "@equals(1, 1)",
-            "type": "Expression"
-          },
-          "ifTrueActivities": [
-            {
-              "type": "Script",
-              "typeProperties": {
-                "scripts": [
-                  {
-                    "text": {
-                      "value": "EXEC dbo.sp_UpdateFailedStatus @messages",
-                      "type": "Expression"
-                    },
-                    "type": "Query",
-                    "parameters": [
-                      {
-                        "name": "messages",
-                        "type": "String",
-                        "value": {
-                          "value": "@string(variables('pipeline_errors'))",
-                          "type": "Expression"
-                        },
-                        "direction": "Input"
-                      }
-                    ]
-                  }
-                ],
-                "scriptBlockExecutionTimeout": "02:00:00"
-              },
-              "connectionSettings": {
-                "name": "Configurations",
-                "properties": {
-                  "type": "FabricSqlDatabase",
-                  "typeProperties": {
-                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
-                    "workspaceId": "00000000-0000-0000-0000-000000000000"
-                  },
-                  "externalReferences": {
-                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
-                  },
-                  "annotations": []
-                }
-              },
-              "policy": {
-                "timeout": "0.12:00:00",
-                "retry": 0,
-                "retryIntervalInSeconds": 30,
-                "secureInput": false,
-                "secureOutput": false
-              },
-              "name": "Update transform_WF failed",
-              "dependsOn": []
-            },
-            {
-              "type": "Script",
-              "typeProperties": {
-                "scripts": [
-                  {
-                    "text": {
-                      "value": "UPDATE dbo.batches\r\nSET status = 'FAILED'\r\n    ,end_time = GETDATE()\r\nWHERE batch_id = @batch_id",
-                      "type": "Expression"
-                    },
-                    "type": "Query",
-                    "parameters": [
-                      {
-                        "name": "batch_id",
-                        "type": "Int64",
-                        "value": {
-                          "value": "@variables('batch_id')",
-                          "type": "Expression"
-                        },
-                        "direction": "Input"
-                      }
-                    ]
-                  }
-                ],
-                "scriptBlockExecutionTimeout": "02:00:00"
-              },
-              "connectionSettings": {
-                "name": "Configurations",
-                "properties": {
-                  "type": "FabricSqlDatabase",
-                  "typeProperties": {
-                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
-                    "workspaceId": "00000000-0000-0000-0000-000000000000"
-                  },
-                  "externalReferences": {
-                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
-                  },
-                  "annotations": []
-                }
-              },
-              "policy": {
-                "timeout": "0.12:00:00",
-                "retry": 0,
-                "retryIntervalInSeconds": 30,
-                "secureInput": false,
-                "secureOutput": false
-              },
-              "name": "Update batch failed",
-              "dependsOn": [
-                {
-                  "activity": "Update transform_WF failed",
-                  "dependencyConditions": [
-                    "Succeeded"
-                  ]
-                }
-              ]
-            }
-          ],
-          "ifFalseActivities": []
-        },
-        "name": "failed block",
-        "dependsOn": [
-          {
-            "activity": "If SRC to Bronze has failed",
-            "dependencyConditions": [
-              "Failed"
-            ]
-          }
-        ]
-      },
-      {
-        "type": "IfCondition",
-        "typeProperties": {
-          "expression": {
-            "value": "@equals(1, 1)",
+            "value": "@greaterOrEquals(length(variables('SRC2Bronze_transform')), 1)",
             "type": "Expression"
           },
           "ifTrueActivities": [
@@ -631,7 +564,7 @@
                         "name": "transform_id",
                         "type": "Int64",
                         "value": {
-                          "value": "@variables('transforms')[0]['transform_id']",
+                          "value": "@variables('SRC2Bronze_transform')[0]['transform_id']",
                           "type": "Expression"
                         },
                         "direction": "Input"
@@ -736,19 +669,117 @@
               ]
             },
             {
-              "type": "SetVariable",
+              "type": "Script",
               "typeProperties": {
-                "variableName": "pipeline_errors",
-                "value": {
-                  "value": "@activity('Trans SRC to Bronze').output.properties.returnValue.pipeline_value_return",
-                  "type": "Expression"
+                "scripts": [
+                  {
+                    "text": {
+                      "value": "EXEC dbo.sp_UpdateFailedStatusOperations @TID,\r\n                                        @WID,\r\n                                        @Message",
+                      "type": "Expression"
+                    },
+                    "type": "Query",
+                    "parameters": [
+                      {
+                        "name": "TID",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('TID')",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      },
+                      {
+                        "name": "WID",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('WID')",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      },
+                      {
+                        "name": "Message",
+                        "type": "String",
+                        "value": {
+                          "value": "@activity('Trans SRC to Bronze').output.failureReason.message",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      }
+                    ]
+                  }
+                ],
+                "scriptBlockExecutionTimeout": "02:00:00"
+              },
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
                 }
               },
               "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
                 "secureInput": false,
                 "secureOutput": false
               },
-              "name": "Set pipeline error variable",
+              "name": "Source to Bronze failed unexpectedly",
+              "description": "",
+              "dependsOn": [
+                {
+                  "activity": "Trans SRC to Bronze",
+                  "dependencyConditions": [
+                    "Failed"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "InvokePipeline",
+              "typeProperties": {
+                "parameters": {
+                  "p_messages": {
+                    "value": "@activity('Trans SRC to Bronze').output.properties.returnValue.pipeline_value_return",
+                    "type": "Expression"
+                  },
+                  "p_TID": {
+                    "value": "@variables('TID')",
+                    "type": "Expression"
+                  },
+                  "p_WID": {
+                    "value": "@variables('WID')",
+                    "type": "Expression"
+                  },
+                  "p_batch": {
+                    "value": "@variables('batch_id')",
+                    "type": "Expression"
+                  }
+                },
+                "waitOnCompletion": true,
+                "workspaceId": "00000000-0000-0000-0000-000000000000",
+                "pipelineId": "ed8a1c8e-503f-b6f4-4f72-7e196d9285fb",
+                "operationType": "InvokeFabricPipeline"
+              },
+              "externalReferences": {
+                "connection": "4cf81c31-cd11-429e-87a5-ca6fcf9e2c80"
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Check error - SRC2Bronze",
               "dependsOn": [
                 {
                   "activity": "Trans SRC to Bronze",
@@ -761,7 +792,7 @@
           ],
           "ifFalseActivities": []
         },
-        "name": "Source to Bronze block",
+        "name": "If SRC2Bronze is enable",
         "dependsOn": [
           {
             "activity": "Create Batch and workflowoperations",
@@ -775,37 +806,7 @@
         "type": "IfCondition",
         "typeProperties": {
           "expression": {
-            "value": "@equals(variables('pipeline_errors')[0].status, 'FAILED')",
-            "type": "Expression"
-          },
-          "ifTrueActivities": [
-            {
-              "type": "Fail",
-              "typeProperties": {
-                "message": "abc",
-                "errorCode": "abc"
-              },
-              "name": "raise error",
-              "dependsOn": []
-            }
-          ],
-          "ifFalseActivities": []
-        },
-        "name": "If SRC to Bronze has failed",
-        "dependsOn": [
-          {
-            "activity": "Source to Bronze block",
-            "dependencyConditions": [
-              "Succeeded"
-            ]
-          }
-        ]
-      },
-      {
-        "type": "IfCondition",
-        "typeProperties": {
-          "expression": {
-            "value": "@equals(1, 1)",
+            "value": "@greaterOrEquals(length(variables('Bronze2Silver_transform')), 1)",
             "type": "Expression"
           },
           "ifTrueActivities": [
@@ -833,7 +834,7 @@
                         "name": "transform_id",
                         "type": "Int64",
                         "value": {
-                          "value": "@variables('transforms')[1]['transform_id']",
+                          "value": "@variables('Bronze2Silver_transform')[0]['transform_id']",
                           "type": "Expression"
                         },
                         "direction": "Input"
@@ -932,14 +933,135 @@
                   ]
                 }
               ]
+            },
+            {
+              "type": "Script",
+              "typeProperties": {
+                "scripts": [
+                  {
+                    "text": {
+                      "value": "EXEC dbo.sp_UpdateFailedStatusOperations @TID,\r\n                                        @WID,\r\n                                        @Message",
+                      "type": "Expression"
+                    },
+                    "type": "Query",
+                    "parameters": [
+                      {
+                        "name": "TID",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('TID')",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      },
+                      {
+                        "name": "WID",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('WID')",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      },
+                      {
+                        "name": "Message",
+                        "type": "String",
+                        "value": {
+                          "value": "@activity('Trans bronze to silver').output.failureReason.message",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      }
+                    ]
+                  }
+                ],
+                "scriptBlockExecutionTimeout": "02:00:00"
+              },
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
+                }
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Bronze to Silver failed unexpectedly",
+              "description": "",
+              "dependsOn": [
+                {
+                  "activity": "Trans bronze to silver",
+                  "dependencyConditions": [
+                    "Failed"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "InvokePipeline",
+              "typeProperties": {
+                "parameters": {
+                  "p_messages": {
+                    "value": "@activity('Trans bronze to silver').output.properties.returnValue.pipeline_value_return",
+                    "type": "Expression"
+                  },
+                  "p_TID": {
+                    "value": "@variables('TID')",
+                    "type": "Expression"
+                  },
+                  "p_WID": {
+                    "value": "@variables('WID')",
+                    "type": "Expression"
+                  },
+                  "p_batch": {
+                    "value": "@variables('batch_id')",
+                    "type": "Expression"
+                  }
+                },
+                "waitOnCompletion": true,
+                "workspaceId": "00000000-0000-0000-0000-000000000000",
+                "pipelineId": "ed8a1c8e-503f-b6f4-4f72-7e196d9285fb",
+                "operationType": "InvokeFabricPipeline"
+              },
+              "externalReferences": {
+                "connection": "4cf81c31-cd11-429e-87a5-ca6fcf9e2c80"
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Check error - Bronze2Silver",
+              "dependsOn": [
+                {
+                  "activity": "Trans bronze to silver",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
             }
           ],
           "ifFalseActivities": []
         },
-        "name": "Bronze to Silver block",
+        "name": "If Bronze2Silver is enable",
         "dependsOn": [
           {
-            "activity": "If SRC to Bronze has failed",
+            "activity": "If SRC2Bronze is enable",
             "dependencyConditions": [
               "Succeeded"
             ]
@@ -947,55 +1069,206 @@
         ]
       },
       {
-        "type": "Script",
+        "type": "IfCondition",
         "typeProperties": {
-          "scripts": [
+          "expression": {
+            "value": "@greaterOrEquals(length(variables('Silver2Gold_transform')), 1)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
             {
-              "text": {
-                "value": "UPDATE dbo.TransformationOperations\r\nSET status = 'SUCCESS'\r\n    ,end_time = GETDATE()\r\nWHERE TID = @TID;\r\n",
-                "type": "Expression"
+              "type": "Script",
+              "typeProperties": {
+                "scripts": [
+                  {
+                    "text": {
+                      "value": "EXEC dbo.sp_CreateTransformationOperation @WID, @transform_id",
+                      "type": "Expression"
+                    },
+                    "type": "Query",
+                    "parameters": [
+                      {
+                        "name": "WID",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('WID')",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      },
+                      {
+                        "name": "transform_id",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('Silver2Gold_transform')[0]['transform_id']",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      }
+                    ]
+                  }
+                ],
+                "scriptBlockExecutionTimeout": "02:00:00"
               },
-              "type": "Query",
-              "parameters": [
-                {
-                  "name": "TID",
-                  "type": "Int16",
-                  "value": {
-                    "value": "@variables('TID')",
-                    "type": "Expression"
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
                   },
-                  "direction": "Input"
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
+                }
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Create Transform Silver to Gold",
+              "description": "",
+              "dependsOn": []
+            },
+            {
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "TID",
+                "value": {
+                  "value": "@int(activity('Create Transform Silver to Gold').output.resultSets[0].rows[0].TID)",
+                  "type": "Expression"
+                }
+              },
+              "policy": {
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Set TID Silver to Gold",
+              "dependsOn": [
+                {
+                  "activity": "Create Transform Silver to Gold",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "InvokePipeline",
+              "typeProperties": {
+                "parameters": {},
+                "waitOnCompletion": true,
+                "workspaceId": "00000000-0000-0000-0000-000000000000",
+                "pipelineId": "7f4b54c3-3a66-ad83-4120-49b8ad0f5af8",
+                "operationType": "InvokeFabricPipeline"
+              },
+              "externalReferences": {
+                "connection": "4cf81c31-cd11-429e-87a5-ca6fcf9e2c80"
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Trans Silver to Gold",
+              "dependsOn": [
+                {
+                  "activity": "Set TID Silver to Gold",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Script",
+              "typeProperties": {
+                "scripts": [
+                  {
+                    "text": {
+                      "value": "EXEC dbo.sp_UpdateFailedStatusOperations @TID,\r\n                                        @WID,\r\n                                        @Message",
+                      "type": "Expression"
+                    },
+                    "type": "Query",
+                    "parameters": [
+                      {
+                        "name": "TID",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('TID')",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      },
+                      {
+                        "name": "WID",
+                        "type": "Int64",
+                        "value": {
+                          "value": "@variables('WID')",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      },
+                      {
+                        "name": "Message",
+                        "type": "String",
+                        "value": {
+                          "value": "@activity('Trans Silver to Gold').output.failureReason.message",
+                          "type": "Expression"
+                        },
+                        "direction": "Input"
+                      }
+                    ]
+                  }
+                ],
+                "scriptBlockExecutionTimeout": "02:00:00"
+              },
+              "connectionSettings": {
+                "name": "Configurations",
+                "properties": {
+                  "type": "FabricSqlDatabase",
+                  "typeProperties": {
+                    "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "externalReferences": {
+                    "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
+                  },
+                  "annotations": []
+                }
+              },
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureInput": false,
+                "secureOutput": false
+              },
+              "name": "Silver to Gold failed unexpectedly",
+              "description": "",
+              "dependsOn": [
+                {
+                  "activity": "Trans Silver to Gold",
+                  "dependencyConditions": [
+                    "Failed"
+                  ]
                 }
               ]
             }
           ],
-          "scriptBlockExecutionTimeout": "02:00:00"
+          "ifFalseActivities": []
         },
-        "connectionSettings": {
-          "name": "Configurations",
-          "properties": {
-            "type": "FabricSqlDatabase",
-            "typeProperties": {
-              "artifactId": "e5996580-aabb-9583-497e-ca8845c568be",
-              "workspaceId": "00000000-0000-0000-0000-000000000000"
-            },
-            "externalReferences": {
-              "connection": "d89a2a4b-b880-4b3e-8309-0fb2196c64bc"
-            },
-            "annotations": []
-          }
-        },
-        "policy": {
-          "timeout": "0.12:00:00",
-          "retry": 0,
-          "retryIntervalInSeconds": 30,
-          "secureInput": false,
-          "secureOutput": false
-        },
-        "name": "update bronze to silver Trans success",
+        "name": "If Silver2Gold is enable",
         "dependsOn": [
           {
-            "activity": "Bronze to Silver block",
+            "activity": "If Bronze2Silver is enable",
             "dependencyConditions": [
               "Succeeded"
             ]
@@ -1031,7 +1304,16 @@
       "pipeline_failed": {
         "type": "Boolean"
       },
-      "pipeline_errors": {
+      "pipeline_messages": {
+        "type": "Array"
+      },
+      "SRC2Bronze_transform": {
+        "type": "Array"
+      },
+      "Bronze2Silver_transform": {
+        "type": "Array"
+      },
+      "Silver2Gold_transform": {
         "type": "Array"
       }
     }

@@ -182,11 +182,11 @@
                   "datasetSettings": {
                     "type": "SqlServerTable",
                     "typeProperties": {
-                      "database": "Tickit"
+                      "database": "Tickit2"
                     },
                     "schema": [],
                     "externalReferences": {
-                      "connection": "0945967e-aee4-4a69-8787-b93d0d9e4ec0"
+                      "connection": "21a112ab-7715-48a0-a0ff-00a18a618346"
                     },
                     "annotations": []
                   }
@@ -526,12 +526,13 @@
           "secureInput": false,
           "secureOutput": false
         },
-        "name": "Set return value success",
+        "name": "Set return value",
         "dependsOn": [
           {
             "activity": "Ingest tickit to Bronze",
             "dependencyConditions": [
-              "Succeeded"
+              "Succeeded",
+              "Failed"
             ]
           }
         ]
@@ -540,7 +541,7 @@
     "parameters": {
       "p_batch_id": {
         "type": "int",
-        "defaultValue": 28
+        "defaultValue": 37
       },
       "p_src_id": {
         "type": "int",

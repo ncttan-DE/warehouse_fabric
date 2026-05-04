@@ -2,72 +2,38 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE   PROCEDURE [gold].[sp_transform_silver_to_gold_fact_sales]
+CREATE   PROCEDURE [gold].[sp_transform_silver_to_gold_dim_venue]
 AS
 BEGIN
     SET NOCOUNT ON;
 
     ------------------------------------------------------------------
-    -- INSERT NEW FACT RECORDS
+    -- INSERT NEW
     ------------------------------------------------------------------
-    INSERT INTO gold.fact_sales (
-        user_key,
-        event_key,
-        venue_key,
-        category_key,
-        date_key,
-        qtysold,
-        pricepaid,
-        commission,
-        saletime
+    INSERT INTO gold.dim_venue (
+        venueid, venuename, venuecity, venuestate, venueseats, hash_value
     )
     SELECT 
-        ISNULL(u.user_key, -1)       AS user_key,
-        ISNULL(e.event_key, -1)      AS event_key,
-        ISNULL(v.venue_key, -1)      AS venue_key,
-        ISNULL(c.category_key, -1)   AS category_key,
-        ISNULL(d.date_key, -1)       AS date_key,
-        s.qtysold,
-        s.pricepaid,
-        s.commission,
-        s.saletime
-    FROM silver.sales s
-
-    -- USER
-    LEFT JOIN gold.dim_user u
-        ON s.buyername = u.username
-
-    -- EVENT
-    LEFT JOIN gold.dim_event e
-        ON s.eventid = e.eventid
-
-    -- VENUE
-    LEFT JOIN gold.dim_venue v
-        ON e.venueid = v.venueid
-
-    -- CATEGORY (SCD TYPE 2 🔥)
-    LEFT JOIN gold.dim_category c
-        ON c.catid = e.eventid   -- ⚠️ adjust if needed
-       AND s.saletime >= c.effective_from
-       AND (s.saletime < c.effective_to OR c.effective_to IS NULL)
-
-    -- DATE
-    LEFT JOIN gold.dim_date d
-        ON s.dateid = d.date_key
+        s.venueid, s.venuename, s.venuecity, s.venuestate, s.venueseats, s.hash_value
+    FROM silver.venue s
+    LEFT JOIN gold.dim_venue g
+        ON s.venueid = g.venueid
+    WHERE g.venueid IS NULL;
 
     ------------------------------------------------------------------
-    -- PREVENT DUPLICATE LOAD
+    -- UPDATE ONLY CHANGED
     ------------------------------------------------------------------
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM gold.fact_sales f
-        WHERE 
-            f.user_key     = ISNULL(u.user_key, -1)
-            AND f.event_key    = ISNULL(e.event_key, -1)
-            AND f.date_key     = ISNULL(d.date_key, -1)
-            AND f.qtysold      = s.qtysold
-            AND f.saletime     = s.saletime
-    );
+    UPDATE g
+    SET 
+        g.venuename = s.venuename,
+        g.venuecity = s.venuecity,
+        g.venuestate = s.venuestate,
+        g.venueseats = s.venueseats,
+        g.hash_value = s.hash_value
+    FROM gold.dim_venue g
+    JOIN silver.venue s
+        ON g.venueid = s.venueid
+    WHERE g.hash_value <> s.hash_value;
 
 END;
 GO

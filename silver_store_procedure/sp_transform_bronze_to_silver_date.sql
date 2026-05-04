@@ -5,6 +5,11 @@ BEGIN
     SET NOCOUNT ON;
 
     ------------------------------------------------------------------
+    -- Step 0: Refresh Silver view to ensure it's up-to-date before transformation
+    ------------------------------------------------------------------
+    TRUNCATE TABLE silver.[date];
+
+    ------------------------------------------------------------------
     -- Step 1: Extract data from Bronze for the given run_id
     --         + Generate hash_value (used for change detection)
     ------------------------------------------------------------------

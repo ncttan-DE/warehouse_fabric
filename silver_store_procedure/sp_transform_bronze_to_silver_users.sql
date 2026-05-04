@@ -5,6 +5,11 @@ BEGIN
     SET NOCOUNT ON;
 
     ------------------------------------------------------------------
+    -- Step 0: Refresh Silver view to ensure it's up-to-date before transformation
+    ------------------------------------------------------------------
+    TRUNCATE TABLE silver.users;
+
+    ------------------------------------------------------------------
     -- Step 1: Extract + hash
     ------------------------------------------------------------------
     DROP TABLE IF EXISTS #temp_users_hash;
